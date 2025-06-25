@@ -26,7 +26,7 @@ def extract_features_from_url(url):
     return pd.DataFrame([features])
 
 # -----------------------
-# Train Model Internally
+# Train Model from Dataset
 # -----------------------
 @st.cache_data
 def train_model():
@@ -34,7 +34,7 @@ def train_model():
     df = df.dropna(subset=["Phising"])
     df = df.dropna()
 
-    # Drop constant columns
+    # Drop constant or non-useful columns
     constant_cols = [col for col in df.columns if df[col].nunique() <= 1]
     df.drop(columns=constant_cols, inplace=True)
 
@@ -56,19 +56,32 @@ st.subheader("🔗 Enter a URL to analyze:")
 user_url = st.text_input("Paste a URL here", placeholder="https://example.com/login")
 
 # -----------------------
-# Predict from URL
+# Predict
 # -----------------------
 if st.button("🧠 Predict"):
     if user_url:
-        features_df = extract_features_from_url(user_url)
+        try:
+            features_df = extract_features_from_url(user_url)
 
-        # Ensure column order matches training set
-        features_df = features_df[feature_names]
+            # Fix: Add missing columns with default value
+            for col in feature_names:
+                if col not in features_df.columns:
+                    features_df[col] = 0
 
-        prediction = model.predict(features_df)[0]
-        result = "🟢 Legitimate Website" if prediction == 0 else "🔴 Phishing Website"
+            # Reorder to match training set
+            features_df = features_df[feature_names]
 
-        st.subheader("🔎 Prediction Result:")
-        st.success(result)
+            prediction = model.predict(features_df)[0]
+            result = "🟢 Legitimate Website" if prediction == 0 else "🔴 Phishing Website"
+
+            st.subheader("🔎 Prediction Result:")
+            st.success(result)
+
+            # Optional: Show features
+            with st.expander("🧪 Extracted Features"):
+                st.dataframe(features_df)
+
+        except Exception as e:
+            st.error(f"❌ Error: {e}")
     else:
-        st.warning("Please enter a valid URL.")
+        st.warning("⚠️ Please enter a valid URL.")
